@@ -1,13 +1,31 @@
 {
-  "name": "bin-generator-bot",
+  "name": "stripe-card-bot",
   "version": "1.0.0",
+  "description": "A Telegram bot for generating and validating card details using Stripe and other APIs.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "axios": "^0.21.1",
-    "dotenv": "^10.0.0",
-    "telegraf": "^3.38.0"
-  }
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "axios": "^1.4.0",
+    "telegraf": "^4.12.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/stripe-card-bot.git"
+  },
+  "keywords": [
+    "telegram-bot",
+    "stripe",
+    "card-generator",
+    "express",
+    "nodejs"
+  ],
+  "author": "卍Ratul卍",
+  "license": "MIT"
 }
