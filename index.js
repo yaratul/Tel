@@ -1,125 +1,86 @@
 require('dotenv').config();
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
+const express = require('express');
 
-// Initialize Telegram bot
+// Initialize the bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
+const app = express();
 
-// Helper function to generate a valid card number from BIN using Luhn algorithm
+// Basic regex to validate card format (more improvements can be made)
+const cardRegex = /^(\d{16})\|(\d{2})\|(\d{4})\|(\d{3,4})$/;
+
+// Function to generate a fake card number based on a BIN
 function generateCardFromBin(bin) {
-    let cardNumber = bin + Math.floor(100000000000 + Math.random() * 900000000000); // Random 12 digits
-
-    // Luhn algorithm implementation
-    function luhnCheck(num) {
-        let arr = (num + '')
-            .split('')
-            .reverse()
-            .map(x => parseInt(x));
-        let sum = arr.reduce((acc, val, idx) =>
-            (idx % 2) ? (val * 2 > 9 ? acc + val * 2 - 9 : acc + val * 2) : acc + val, 0);
-        return sum % 10 === 0;
+    let cardNumber = bin;
+    for (let i = bin.length; i < 16; i++) {
+        cardNumber += Math.floor(Math.random() * 10); // Generate random digits
     }
 
-    // Keep generating until we get a valid Luhn card number
-    while (!luhnCheck(cardNumber)) {
-        cardNumber = bin + Math.floor(100000000000 + Math.random() * 900000000000);
-    }
+    const expMonth = ('0' + (Math.floor(Math.random() * 12) + 1)).slice(-2);
+    const expYear = (new Date().getFullYear() + Math.floor(Math.random() * 5)).toString();
+    const cvc = Math.floor(100 + Math.random() * 900).toString();
 
-    return cardNumber;
+    return `${cardNumber}|${expMonth}|${expYear}|${cvc}`;
 }
 
-// Validate card number using regex
-function validateCardNumber(cardNumber) {
-    const regex = /^4[0-9]{12}(?:[0-9]{3})?$/;  // Example Visa regex
-    return regex.test(cardNumber);
-}
-
-// Fetch BIN details from API
-async function fetchBinDetails(bin) {
-    try {
-        const response = await axios.get(`https://lookup.binlist.net/${bin}`);
-        return response.data;
-    } catch (error) {
-        return { error: "Could not fetch BIN details." };
-    }
-}
-
-// Generate a random expiration date and CVC
-function generateExpiryAndCVC() {
-    const expMonth = ('0' + Math.floor(Math.random() * 12 + 1)).slice(-2); // Random month between 01 and 12
-    const expYear = Math.floor(new Date().getFullYear() + Math.random() * 5);  // Random year, up to 5 years ahead
-    const cvc = Math.floor(100 + Math.random() * 900);  // Random CVC (3 digits)
-
-    return {
-        expMonth: expMonth,
-        expYear: expYear,
-        cvc: cvc
-    };
-}
-
-// Command to generate cards and show BIN details
-bot.command('/generate_card', async (ctx) => {
-    const bin = ctx.message.text.split(' ')[1];  // Get BIN from command input
-    if (!bin || bin.length !== 6) {
-        return ctx.reply('Please provide a valid 6-digit BIN.');
+// Command to generate cards from BIN
+bot.command('/generate', (ctx) => {
+    const messageParts = ctx.message.text.split(' ');
+    if (messageParts.length < 2 || messageParts[1].length < 6) {
+        return ctx.reply('Please provide a valid BIN (first 6 digits of the card)');
     }
 
-    // Generate random card number
-    const cardNumber = generateCardFromBin(bin);
+    const bin = messageParts[1];
+    const card = generateCardFromBin(bin);
 
-    // Fetch BIN details
-    const binDetails = await fetchBinDetails(bin);
-    if (binDetails.error) {
-        return ctx.reply(binDetails.error);
+    // You can extend this by querying a service or database to get more card details (VBV/non-VBV etc.)
+    return ctx.reply(`Generated Card:\n${card}`);
+});
+
+// Regex-based card validation and basic details extraction
+bot.command('/validate', (ctx) => {
+    const cardDetails = ctx.message.text.split(' ').slice(1).join(' '); // Get card details after command
+
+    if (!cardRegex.test(cardDetails)) {
+        return ctx.reply('Invalid card format. Use: cc_number|MM|YYYY|CVC');
     }
 
-    // Generate expiry date and CVC
-    const { expMonth, expYear, cvc } = generateExpiryAndCVC();
-
-    // Validate the card number
-    if (!validateCardNumber(cardNumber)) {
-        return ctx.reply('Generated card number is invalid.');
-    }
-
-    // Construct the response message
-    const message = `
-    BIN: ${bin}
-    Bank: ${binDetails.bank ? binDetails.bank.name : 'Unknown'}
-    Country: ${binDetails.country ? binDetails.country.name : 'Unknown'}
-    Card Type: ${binDetails.type || 'Unknown'}
-    Brand: ${binDetails.brand || 'Unknown'}
-    VBV Status: ${binDetails.prepaid ? 'Non-VBV' : 'VBV'}
-    Generated Card: ${cardNumber}|${expMonth}|${expYear}|${cvc}
-    `;
-
-    await ctx.reply(message);
+    const [cardNumber, expMonth, expYear, cvc] = cardDetails.split('|');
+    return ctx.reply(`Card: ${cardNumber.slice(0, 6)}******${cardNumber.slice(-4)}\nExp: ${expMonth}/${expYear}\nCVC: ${cvc}`);
 });
 
-bot.command('/options', (ctx) => {
-    return ctx.reply('Choose an option:', {
-        reply_markup: {
-            inline_keyboard: [
-                [{ text: 'Generate Card', callback_data: 'generate_card' }],
-                [{ text: 'Check BIN', callback_data: 'check_bin' }]
-            ]
-        }
-    });
+// Webhook setup (for better uptime)
+bot.telegram.setWebhook(`${process.env.DOMAIN}/bot${process.env.BOT_TOKEN}`);
+app.use(bot.webhookCallback(`/bot${process.env.BOT_TOKEN}`));
+
+// Route for keep-alive
+app.get('/', (req, res) => {
+    res.send('Bot is running');
 });
 
-bot.action('generate_card', (ctx) => {
-    ctx.reply('Send the BIN to generate a card.');
+// Start Express Server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
 
-bot.action('check_bin', (ctx) => {
-    ctx.reply('Send the BIN to check details.');
-});
-// Start the bot and bind to the port for Render
-bot.launch({
-    webhook: {
-        domain: process.env.DOMAIN,
-        port: process.env.PORT || 10000
-    }
-});
+// Keep-Alive mechanism to ping the bot every 5 minutes
+setInterval(() => {
+    axios.get(`https://${process.env.DOMAIN}`)
+        .then(() => console.log('Keep-alive ping'))
+        .catch((err) => console.log('Keep-alive failed', err));
+}, 5 * 60 * 1000); // Ping every 5 minutes
 
+// Start bot (Use webhook)
+bot.launch();
+
+// Handle graceful shutdown
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+module.exports = {
+    init: function(bot) {
+        console.log('Bot initialized!');
+    }
+};
