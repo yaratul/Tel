@@ -1,31 +1,32 @@
 {
-  "name": "stripe-card-bot",
+  "name": "stripe-validator-bot",
   "version": "1.0.0",
-  "description": "A Telegram bot for generating and validating card details using Stripe and other APIs.",
+  "description": "A Telegram bot for validating card numbers using Stripe API.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "dotenv": "^16.0.3",
     "express": "^4.18.2",
+    "telegraf": "^4.12.2",
+    "morgan": "^1.10.0",
     "axios": "^1.4.0",
-    "telegraf": "^4.12.2"
+    "dotenv": "^16.0.3"
   },
   "engines": {
     "node": ">=14.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/stripe-card-bot.git"
+    "url": "https://github.com/yaratul/Tel"
   },
   "keywords": [
-    "telegram-bot",
+    "telegram",
+    "bot",
     "stripe",
-    "card-generator",
-    "express",
-    "nodejs"
+    "card-validation",
+    "express"
   ],
-  "author": "卍Ratul卍",
+  "author": "Ratul",
   "license": "MIT"
 }
